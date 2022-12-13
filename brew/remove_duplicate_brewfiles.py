@@ -1,13 +1,28 @@
+import argparse
 import os
 import hashlib
 
+#
+#  parse command-line arguments
+#
+parser = argparse.ArgumentParser()
+
+parser.add_argument('directory')
+parser.add_argument('-e', '--encoding',
+                    help='Set string encoding.', default='UTF-8')
+
+args = parser.parse_args()
+
+directory = os.fsencode(os.path.expanduser(args.directory))
+
+#
+#  hash to hold file information
+#
 files = {}
 
 #
 #  calculate hash and modified time for each file
 #
-directory = os.path.expanduser("~/OneDrive/Brewfiles")
-
 for entry in os.scandir(directory):
     if entry.is_file():
         md5 = hashlib.md5(open(entry, 'rb').read()).hexdigest()
@@ -33,4 +48,4 @@ for md5 in list(files.keys()):
     for entry in list(files[md5]):
         os.remove(entry)
 
-        print('Deleted {0}'.format(entry.name.decode('UTF-8')))
+        print('Deleted {0}'.format(entry.name.decode(args.encoding)))

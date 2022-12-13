@@ -19,7 +19,7 @@ brew bundle dump -f && mv Brewfile $BACKUP_FILE
 #
 #  remove duplicates
 #
-python3 $REMOVE_DUPLICATES_SCRIPT
+python3 $REMOVE_DUPLICATES_SCRIPT "$BACKUP_PATH"
 
 
 #
