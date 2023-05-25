@@ -4,7 +4,7 @@
 #
 #  constants
 #
-BACKUP_PATH=~/OneDrive/MacAppsListFiles
+BACKUP_PATH=~/iCloud/MacAppsListFiles
 BACKUP_FILE=$BACKUP_PATH/MacApps.$( date "+%Y%m%d-%H%M%S" )
 
 REMOVE_DUPLICATES_SCRIPT=~/bin/remove_duplicate_brewfiles.py
@@ -13,7 +13,7 @@ REMOVE_DUPLICATES_SCRIPT=~/bin/remove_duplicate_brewfiles.py
 #
 #  backup applications list
 #
-ls /Applications |sed 's/\.app\///' > $BACKUP_FILE
+ls /Applications | sed 's/\.app\///' > $BACKUP_FILE
 
 
 #

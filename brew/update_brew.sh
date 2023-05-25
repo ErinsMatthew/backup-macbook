@@ -5,7 +5,7 @@ set -o nounset
 #
 #  constants
 #
-BACKUP_PATH=~/OneDrive/Brewfiles
+BACKUP_PATH=~/iCloud/Brewfiles
 BACKUP_FILE=${BACKUP_PATH}/Brewfile.$( date "+%Y%m%d-%H%M%S" )
 
 REMOVE_DUPLICATES_SCRIPT=~/bin/remove_duplicate_brewfiles.py
