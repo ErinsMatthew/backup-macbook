@@ -8,7 +8,7 @@ set -o nounset
 BACKUP_PATH=~/iCloud/Brewfiles
 BACKUP_FILE=${BACKUP_PATH}/Brewfile.$( date "+%Y%m%d-%H%M%S" )
 
-REMOVE_DUPLICATES_SCRIPT=~/bin/remove_duplicate_brewfiles.py
+REMOVE_DUPLICATES_SCRIPT=~/bin/remove_duplicate_files.py
 
 EVICT_DAYS=7
 
