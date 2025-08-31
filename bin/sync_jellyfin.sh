@@ -110,12 +110,12 @@ sync_folders() {
 
     debug "Syncing library: '${local_path}/' to '${remote_user_host}:${remote_path}/'."
 
-    #caffeinate -dim \
-    #  rsync --devices --specials --ignore-times \
-    #  --recursive --times --quiet \
-    #  --exclude-from="${GLOBALS[EXCLUDE_FILE]}" \
-    #  "${local_path}/" \
-    #  "${remote_user_host}:${remote_path}/"
+    caffeinate -dim \
+      rsync --devices --specials --ignore-times \
+      --recursive --times --quiet \
+      --exclude-from="${GLOBALS[EXCLUDE_FILE]}" \
+      "${local_path}/" \
+      "${remote_user_host}:${remote_path}/"
 
     debug "Done syncing ${library}."
 }
