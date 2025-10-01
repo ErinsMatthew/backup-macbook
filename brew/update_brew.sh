@@ -12,6 +12,8 @@ REMOVE_DUPLICATES_SCRIPT=~/bin/remove_duplicate_files.py
 
 EVICT_DAYS=7
 
+mkdir -p "${BACKUP_PATH}"
+
 #
 #  backup brews
 #
