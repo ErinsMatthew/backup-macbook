@@ -4,6 +4,7 @@
         "brctl",
         "Brewfiles",
         "caffeinate",
+        "gfind",
         "jellyfin"
     ]
 }
