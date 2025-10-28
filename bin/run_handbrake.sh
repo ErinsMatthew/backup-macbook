@@ -22,6 +22,8 @@ init_globals() {
         [DEBUG]='false'
         [BASE_INPUT_PATH]=''
         [BASE_OUTPUT_PATH]=''
+        [PRESET_JSON]=''
+        [PRESET_NAME]='MKV Fast 1080p30 English Subtitles'
     )
 }
 
@@ -36,7 +38,7 @@ process_options() {
     local OPTARG    # set by getopts
     local OPTIND    # set by getopts
 
-    while getopts ":di:o:" flag; do
+    while getopts ":di:o:j:p:" flag; do
         case "${flag}" in
             d)
                 GLOBALS[DEBUG]='true'
@@ -56,6 +58,18 @@ process_options() {
                 debug "Output path set to '${GLOBALS[BASE_OUTPUT_PATH]}'."
                 ;;
 
+            j)
+                GLOBALS[PRESET_JSON]="${OPTARG}"
+
+                debug "Preset JSON file set to '${GLOBALS[PRESET_JSON]}'."
+                ;;
+
+            p)
+                GLOBALS[PRESET_NAME]="${OPTARG}"
+
+                debug "Preset name set to '${GLOBALS[PRESET_NAME]}'."
+                ;;
+
             *)
                 usage
                 ;;
@@ -63,6 +77,14 @@ process_options() {
     done
 
     shift $(( OPTIND - 1 ))
+}
+
+set_defaults() {
+    if [[ -z ${GLOBALS[PRESET_JSON]} ]]; then
+        GLOBALS[PRESET_JSON]=$(realpath ./handbrake_presets.json)
+
+        debug "Preset JSON file set to default of '${GLOBALS[PRESET_JSON]}'."
+    fi
 }
 
 run_handbrake() {
@@ -86,7 +108,7 @@ run_handbrake() {
 
     debug "Running HandBrake on files in '${input_path}'..."
 
-    for input_file in "${input_path}"/*; do
+    for input_file in "${input_path}"/*.mkv; do
         if [[ ! -f ${input_file} ]]; then
             debug "Skipping non-file: '${input_file}'."
 
@@ -97,7 +119,7 @@ run_handbrake() {
         local output_file
 
         filename=$(basename "${input_file}")
-        output_file="${output_path}/${filename%.*}.mp4"
+        output_file="${output_path}/${filename%.*}.mkv"
 
         if [[ -f ${output_file} ]]; then
             debug "Output file already exists, skipping: '${output_file}'."
@@ -110,9 +132,10 @@ run_handbrake() {
         # --json
         caffeinate -dim \
           HandBrakeCLI \
-          --preset="Fast 1080p30" \
-          --input="${input_file}" \
-          --output="${output_file}"
+          --preset-import-file "${GLOBALS[PRESET_JSON]}" \
+          --preset "${GLOBALS[PRESET_NAME]}" \
+          --input "${input_file}" \
+          --output "${output_file}"
 
         debug "Done with file: '${input_file}'."
     done
@@ -124,6 +147,8 @@ main() {
     init_globals
 
     process_options "$@"
+
+    set_defaults
 
     run_handbrake
 }
