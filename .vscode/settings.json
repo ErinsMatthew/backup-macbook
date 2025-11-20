@@ -4,7 +4,10 @@
         "brctl",
         "Brewfiles",
         "caffeinate",
+        "ffprobe",
         "gfind",
-        "jellyfin"
+        "jellyfin",
+        "nokey",
+        "noprint"
     ]
 }
