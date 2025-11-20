@@ -31,18 +31,22 @@ init_globals() {
         [PRESET_JSON]=''                                    # -j
         [PRESET_NAME]='MKV Fast 1080p30 English Subtitles'  # -p
         [BASE_OUTPUT_PATH]=''                               # -o
-        [THREAD_COUNT]=4                                    # -t
+        [THREAD_COUNT]=$(sysctl -n hw.ncpu)                 # -t
         [INPUT_EXTENSION]='mkv'                             # -x
         [OUTPUT_EXTENSION]='mkv'                            # -y
-        [PROCESSED_COUNT]=0
-        [SKIPPED_EXISTS_COUNT]=0
-        [SKIPPED_ERROR_COUNT]=0
         [START_TIME]=0
     )
 
     declare -ag SHORT_FILES=()
 
+    declare -Ag COUNTS=(
+        [PROCESSED]=0
+        [EXISTS]=0
+        [ERROR]=0
+    )
+
     declare -Ag COLORS=(
+        [bold]=$(tput bold)
         [blue]=$(tput setaf 4)
         [green]=$(tput setaf 2)
         [red]=$(tput setaf 1)
@@ -218,15 +222,15 @@ run_handbrake() {
     if [[ -z ${output_file} ]]; then
         debug "Could not determine output file for input file: '${input_file}'. Skipping."
 
-        GLOBALS[SKIPPED_ERROR_COUNT]=$((GLOBALS[SKIPPED_ERROR_COUNT] + 1))
+        COUNTS[ERROR]=$((COUNTS[ERROR] + 1))
 
         return 1
     fi
 
     if [[ -f ${output_file} ]]; then
-        debug "${COLORS[green]}${show_or_movie_name}: ${COLORS[red]}Output file already exists:${COLORS[reset]} '${output_file}'. Skipping."
+        debug "${COLORS[bold]}${COLORS[green]}${show_or_movie_name}: ${COLORS[red]}Output file already exists:${COLORS[reset]} '${output_file}'. Skipping."
 
-        GLOBALS[SKIPPED_EXISTS_COUNT]=$((GLOBALS[SKIPPED_EXISTS_COUNT] + 1))
+        COUNTS[EXISTS]=$((COUNTS[EXISTS] + 1))
 
         local input_seconds
         local output_seconds
@@ -255,7 +259,7 @@ run_handbrake() {
 
     debug "Done with file: '${input_file}'."
 
-    GLOBALS[PROCESSED_COUNT]=$((GLOBALS[PROCESSED_COUNT] + 1))
+    COUNTS[PROCESSED]=$((COUNTS[PROCESSED] + 1))
 }
 
 summary() {
@@ -277,9 +281,9 @@ End Time   : ${end_time}
 Duration   : ${duration}
 
 ${COLORS[white]}== ${COLORS[blue]}COUNTS ${COLORS[white]}==${COLORS[reset]}
-Processed : ${GLOBALS[PROCESSED_COUNT]}
-Exists    : ${GLOBALS[SKIPPED_EXISTS_COUNT]}
-Errors    : ${COLORS[red]}${GLOBALS[SKIPPED_ERROR_COUNT]}${COLORS[reset]}
+Processed : ${COUNTS[PROCESSED]}
+Exists    : ${COUNTS[EXISTS]}
+Errors    : ${COLORS[red]}${COUNTS[ERROR]}${COLORS[reset]}
 
 ${COLORS[white]}== ${COLORS[red]}MISMATCHES ${COLORS[white]}==${COLORS[reset]}
 ${SHORT_FILES[@]}
