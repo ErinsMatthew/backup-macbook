@@ -8,6 +8,7 @@
         "gfind",
         "jellyfin",
         "nokey",
-        "noprint"
+        "noprint",
+        "setaf"
     ]
 }

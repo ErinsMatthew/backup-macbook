@@ -41,6 +41,14 @@ init_globals() {
     )
 
     declare -ag SHORT_FILES=()
+
+    declare -Ag COLORS=(
+        [blue]=$(tput setaf 4)
+        [green]=$(tput setaf 2)
+        [red]=$(tput setaf 1)
+        [white]=$(tput setaf 7)
+        [reset]=$(tput sgr0)
+    )
 }
 
 debug() {
@@ -131,6 +139,24 @@ set_defaults() {
     fi
 }
 
+check_for_dependency() {
+    debug "Checking for dependency '$1'."
+
+    if ! command -v "$1" &> /dev/null; then
+        echo "Dependency '$1' is missing." > /dev/stderr
+
+        exit
+    fi
+}
+
+check_dependencies() {
+    local dependency
+
+    for dependency in caffeinate cat date ffprobe HandBrakeCLI realpath sed tput; do
+        check_for_dependency "${dependency}"
+    done
+}
+
 validate_globals() {
     if [[ ! -d ${GLOBALS[BASE_INPUT_PATH]} ]]; then
         debug "Error: Input path is valid."
@@ -183,9 +209,11 @@ get_file_seconds() {
 run_handbrake() {
     local input_file
     local output_file
+    local show_or_movie_name
 
     input_file="$1"
     output_file=$(get_output_file "${input_file}")
+    show_or_movie_name=$(get_movie_or_show_name "${input_file}")
 
     if [[ -z ${output_file} ]]; then
         debug "Could not determine output file for input file: '${input_file}'. Skipping."
@@ -196,7 +224,7 @@ run_handbrake() {
     fi
 
     if [[ -f ${output_file} ]]; then
-        debug "Output file already exists: '${output_file}'. Skipping."
+        debug "${COLORS[green]}${show_or_movie_name}: ${COLORS[red]}Output file already exists:${COLORS[reset]} '${output_file}'. Skipping."
 
         GLOBALS[SKIPPED_EXISTS_COUNT]=$((GLOBALS[SKIPPED_EXISTS_COUNT] + 1))
 
@@ -223,7 +251,7 @@ run_handbrake() {
         --preset "${GLOBALS[PRESET_NAME]}" \
         --input "${input_file}" \
         --output "${output_file}" \
-        -x threads=${GLOBALS[THREAD_COUNT]}
+        -x threads="${GLOBALS[THREAD_COUNT]}"
 
     debug "Done with file: '${input_file}'."
 
@@ -239,21 +267,22 @@ summary() {
     elapsed=$((end_time - GLOBALS[START_TIME]))
     duration=$(date -ud "@$elapsed" +'%H hr %M min %S sec')
 
-    debug "Processing complete."
-
     cat <<EOT
 
 Processing complete.
 
-Start Time  : ${GLOBALS[START_TIME]}
-End Time    : ${end_time}
-Duration    : ${duration}
+${COLORS[white]}== ${COLORS[blue]}TIMING ${COLORS[white]}==${COLORS[reset]}
+Start Time : ${GLOBALS[START_TIME]}
+End Time   : ${end_time}
+Duration   : ${duration}
 
-Processed   : ${GLOBALS[PROCESSED_COUNT]}
-Exists      : ${GLOBALS[SKIPPED_EXISTS_COUNT]}
-Errors      : ${GLOBALS[SKIPPED_ERROR_COUNT]}
+${COLORS[white]}== ${COLORS[blue]}COUNTS ${COLORS[white]}==${COLORS[reset]}
+Processed : ${GLOBALS[PROCESSED_COUNT]}
+Exists    : ${GLOBALS[SKIPPED_EXISTS_COUNT]}
+Errors    : ${COLORS[red]}${GLOBALS[SKIPPED_ERROR_COUNT]}${COLORS[reset]}
 
-Short Files : ${SHORT_FILES[@]}
+${COLORS[white]}== ${COLORS[red]}MISMATCHES ${COLORS[white]}==${COLORS[reset]}
+${SHORT_FILES[@]}
 EOT
 
     exit
