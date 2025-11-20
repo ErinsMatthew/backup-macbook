@@ -2,6 +2,9 @@
 
 set -o nounset
 
+# run summary on exit or interrupt
+trap summary EXIT
+
 usage() {
     cat << EOT 1>&2
 Usage: run_handbrake.sh [-d] [-i input_path] [-o output_path] relative_output_path
@@ -28,9 +31,16 @@ init_globals() {
         [PRESET_JSON]=''                                    # -j
         [PRESET_NAME]='MKV Fast 1080p30 English Subtitles'  # -p
         [BASE_OUTPUT_PATH]=''                               # -o
+        [THREAD_COUNT]=4                                    # -t
         [INPUT_EXTENSION]='mkv'                             # -x
         [OUTPUT_EXTENSION]='mkv'                            # -y
+        [PROCESSED_COUNT]=0
+        [SKIPPED_EXISTS_COUNT]=0
+        [SKIPPED_ERROR_COUNT]=0
+        [START_TIME]=0
     )
+
+    declare -ag SHORT_FILES=()
 }
 
 debug() {
@@ -44,7 +54,7 @@ process_options() {
     local OPTARG    # set by getopts
     local OPTIND    # set by getopts
 
-    while getopts ":di:j:p:o:x:y:" flag; do
+    while getopts ":di:j:p:o:t:x:y:" flag; do
         case "${flag}" in
             d)
                 GLOBALS[DEBUG]='true'
@@ -75,6 +85,23 @@ process_options() {
 
                 debug "Output path set to '${GLOBALS[BASE_OUTPUT_PATH]}'."
                 ;;
+
+            t)
+                local cpu_count
+
+                cpu_count=$(sysctl -n hw.ncpu)
+
+                if (( OPTARG < 1 || OPTARG > cpu_count )); then
+                    debug "Thread count must be between 1 and ${cpu_count}."
+
+                    usage
+                fi
+
+                GLOBALS[THREAD_COUNT]="${OPTARG}"
+
+                debug "Thread count set to '${GLOBALS[THREAD_COUNT]}'."
+                ;;
+
             x)
                 GLOBALS[INPUT_EXTENSION]=$(realpath "${OPTARG}")
 
@@ -123,7 +150,7 @@ get_movie_or_show_name() {
 }
 
 replace_input_path() {
-    printf "%s" "$1" | sed -E "s|^${GLOBALS[BASE_INPUT_PATH]}/(.*)|$2/\1|"
+    printf "%s" "$1" | sed -E "s|^${GLOBALS[BASE_INPUT_PATH]}/(.*)\.${GLOBALS[INPUT_EXTENSION]}|$2/\1.${GLOBALS[OUTPUT_EXTENSION]}|"
 }
 
 get_output_file() {
@@ -144,6 +171,15 @@ get_output_file() {
     printf "%s" "${output_file}"
 }
 
+get_file_seconds() {
+    local seconds
+
+    seconds=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$1")
+    seconds=${seconds%.*}
+
+    printf "%s" "${seconds}"
+}
+
 run_handbrake() {
     local input_file
     local output_file
@@ -154,28 +190,74 @@ run_handbrake() {
     if [[ -z ${output_file} ]]; then
         debug "Could not determine output file for input file: '${input_file}'. Skipping."
 
+        GLOBALS[SKIPPED_ERROR_COUNT]=$((GLOBALS[SKIPPED_ERROR_COUNT] + 1))
+
         return 1
     fi
 
     if [[ -f ${output_file} ]]; then
         debug "Output file already exists: '${output_file}'. Skipping."
 
+        GLOBALS[SKIPPED_EXISTS_COUNT]=$((GLOBALS[SKIPPED_EXISTS_COUNT] + 1))
+
+        local input_seconds
+        local output_seconds
+
+        input_seconds=$(get_file_seconds "${input_file}")
+        output_seconds=$(get_file_seconds "${output_file}")
+
+        if (( output_seconds < input_seconds )); then
+            debug "Output file '${output_file}' is possibly shorter than '${input_file}'."
+
+            SHORT_FILES+=("${input_file} (${input_seconds}s) vs ${output_file} (${output_seconds}s)")
+        fi
+
         return 2
     fi
 
     debug "Processing file: '${input_file}' to '${output_file}'."
 
-    # --json
     caffeinate -dim \
         HandBrakeCLI \
         --preset-import-file "${GLOBALS[PRESET_JSON]}" \
         --preset "${GLOBALS[PRESET_NAME]}" \
         --input "${input_file}" \
-        --output "${output_file}"
+        --output "${output_file}" \
+        -x threads=${GLOBALS[THREAD_COUNT]}
 
     debug "Done with file: '${input_file}'."
+
+    GLOBALS[PROCESSED_COUNT]=$((GLOBALS[PROCESSED_COUNT] + 1))
 }
 
+summary() {
+    local end_time
+    local elapsed
+    local duration
+
+    end_time=$(date +%s)
+    elapsed=$((end_time - GLOBALS[START_TIME]))
+    duration=$(date -ud "@$elapsed" +'%H hr %M min %S sec')
+
+    debug "Processing complete."
+
+    cat <<EOT
+
+Processing complete.
+
+Start Time  : ${GLOBALS[START_TIME]}
+End Time    : ${end_time}
+Duration    : ${duration}
+
+Processed   : ${GLOBALS[PROCESSED_COUNT]}
+Exists      : ${GLOBALS[SKIPPED_EXISTS_COUNT]}
+Errors      : ${GLOBALS[SKIPPED_ERROR_COUNT]}
+
+Short Files : ${SHORT_FILES[@]}
+EOT
+
+    exit
+}
 
 main() {
     init_globals
@@ -186,9 +268,13 @@ main() {
 
     validate_globals
 
-    while read -r file; do
+    mapfile -d $'\0' file_list < <(gfind "${GLOBALS[BASE_INPUT_PATH]}" -type f -name "*.${GLOBALS[INPUT_EXTENSION]}" -print0)
+
+    GLOBALS[START_TIME]=$(date +%s)
+
+    for file in "${file_list[@]}"; do
         run_handbrake "${file}"
-    done < <(gfind "${GLOBALS[BASE_INPUT_PATH]}" -type f -name "*.${GLOBALS[INPUT_EXTENSION]}")
+    done
 }
 
 main "$@"
