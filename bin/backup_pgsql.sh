@@ -13,8 +13,6 @@ REMOVE_DUPLICATES_SCRIPT=~/bin/remove_duplicate_files.py
 
 EVICT_DAYS=7
 
-mkdir -p "${BACKUP_PATH}"
-
 #
 #  backup
 #
@@ -23,9 +21,15 @@ pg_dump "${DATABASE_NAME}" | gzip > "${BACKUP_FILE}"
 #
 #  remove duplicates
 #
-python3 "${REMOVE_DUPLICATES_SCRIPT}" "${BACKUP_PATH}"
+#python3 "${REMOVE_DUPLICATES_SCRIPT}" "${BACKUP_PATH}"
 
 #
 #  evict old backup files from local disk
 #
-#find "${BACKUP_PATH}" -mtime +"${EVICT_DAYS}" -exec brctl evict "{}" \;
+find "${BACKUP_PATH}" -mtime +"${EVICT_DAYS}" -exec brctl evict "{}" \;
+
+
+## dropdb live-recordings
+## createdb live-recordings
+## gunzip -c '/Users/doof/Library/Mobile Documents/com~apple~CloudDocs/Backup/live-recordings/live-recordings-20250805-075152.psql.gz' | psql live-recordings
+##

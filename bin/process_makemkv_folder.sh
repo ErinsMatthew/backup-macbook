@@ -7,7 +7,7 @@ trap summary EXIT
 
 usage() {
     cat << EOT 1>&2
-Usage: run_handbrake.sh [-d] [-i input_path] [-o output_path] relative_output_path
+Usage: process_makemkv_folder.sh [-d] [-i input_path] [-o output_path] relative_output_path
 
  OPTIONS
  =======

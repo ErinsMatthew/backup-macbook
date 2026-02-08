@@ -8,11 +8,9 @@ set -o nounset
 BACKUP_PATH=~/iCloud/Brewfiles
 BACKUP_FILE=${BACKUP_PATH}/Brewfile.$( date "+%Y%m%d-%H%M%S" )
 
-REMOVE_DUPLICATES_SCRIPT=~/bin/remove_duplicate_files.py
+REMOVE_DUPLICATES_SCRIPT=~/bin/remove_duplicate_brewfiles.py
 
 EVICT_DAYS=7
-
-mkdir -p "${BACKUP_PATH}"
 
 #
 #  backup brews
@@ -27,7 +25,8 @@ python3 "${REMOVE_DUPLICATES_SCRIPT}" "${BACKUP_PATH}"
 #
 #  evict old Brewfiles from local disk
 #
-find "${BACKUP_PATH}" -mtime +"${EVICT_DAYS}" -exec brctl evict "{}" \;
+#FIXME: find redownloads iCloud files
+#find "${BACKUP_PATH}" -mtime +"${EVICT_DAYS}" -exec brctl evict "{}" \;
 
 #
 #  update and upgrade

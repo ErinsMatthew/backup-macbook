@@ -93,6 +93,8 @@ sync_folders() {
     local remote_user_host
     local remote_path
 
+    local show_progress
+
     local library
 
     library=$1
@@ -110,8 +112,15 @@ sync_folders() {
 
     debug "Syncing library: '${local_path}/' to '${remote_user_host}:${remote_path}/'."
 
+    if [[ ${GLOBALS[DEBUG]} == 'true' ]]; then
+        show_progress="--info=progress2"
+    else
+        show_progress=""
+    fi 
+
     caffeinate -dim \
-      rsync --devices --specials --ignore-times \
+      rsync "${show_progress}" \
+      --devices --specials --ignore-times \
       --recursive --times --quiet \
       --exclude-from="${GLOBALS[EXCLUDE_FILE]}" \
       "${local_path}/" \
