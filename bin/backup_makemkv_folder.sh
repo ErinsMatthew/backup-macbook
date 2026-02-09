@@ -7,22 +7,17 @@ trap summary EXIT
 
 usage() {
     cat << EOT 1>&2
-Usage: process_makemkv_folder.sh [-d] [-i input_path] [-o output_path] [-j file] [-p preset_name] [-t thread_count] [-x input_extension] [-y output_extension]
+Usage: backup_makemkv_folder.sh [-d] [-i input_path] [-o output_path]
 
 OPTIONS
 =======
--d        output debug information
--i dir    input path for the source files
--j file   HandBrake preset JSON file
--p name   HandBrake preset name
--o dir    output path for the processed files
--t count  number of threads to use for processing (default: number of CPU cores)
--x ext    input file extension (default: mkv)
--y ext    output file extension (default: mkv)
+-d      output debug information
+-i dir  input path for the source files
+-o dir  output path for the processed files
 
 EXAMPLE
 =======
-$ process_makemkv_folder.sh -d -i /Users/doof/MakeMKV\ Working\ Folder/ -o /Users/doof/Jellyfin/ -t 4
+$ backup_makemkv_folder.sh -d -i /Users/doof/MakeMKV\ Working\ Folder/ -o /Volumes/Jellyfin\ Media\ MKV\ Backup
 
 EOT
 
@@ -33,12 +28,8 @@ init_globals() {
     declare -Ag GLOBALS=(
         [DEBUG]='false'                                     # -d
         [BASE_INPUT_PATH]=''                                # -i
-        [PRESET_JSON]=''                                    # -j
-        [PRESET_NAME]='MKV Fast 1080p30 English Subtitles'  # -p
         [BASE_OUTPUT_PATH]=''                               # -o
-        [THREAD_COUNT]=$(sysctl -n hw.ncpu)                 # -t
-        [INPUT_EXTENSION]='mkv'                             # -x
-        [OUTPUT_EXTENSION]='mkv'                            # -y
+        [IMDB_DB_PATH]='/Users/doof/Documents/imdb.db'
         [START_TIME]=0
     )
 
@@ -71,7 +62,7 @@ process_options() {
     local OPTARG    # set by getopts
     local OPTIND    # set by getopts
 
-    while getopts ":di:j:p:o:t:x:y:" flag; do
+    while getopts ":di:o:" flag; do
         case "${flag}" in
             d)
                 GLOBALS[DEBUG]='true'
@@ -85,50 +76,10 @@ process_options() {
                 debug "Input path set to '${GLOBALS[BASE_INPUT_PATH]}'."
                 ;;
 
-            j)
-                GLOBALS[PRESET_JSON]="${OPTARG}"
-
-                debug "Preset JSON file set to '${GLOBALS[PRESET_JSON]}'."
-                ;;
-
-            p)
-                GLOBALS[PRESET_NAME]="${OPTARG}"
-
-                debug "Preset name set to '${GLOBALS[PRESET_NAME]}'."
-                ;;
-
             o)
                 GLOBALS[BASE_OUTPUT_PATH]=$(realpath "${OPTARG}")
 
                 debug "Output path set to '${GLOBALS[BASE_OUTPUT_PATH]}'."
-                ;;
-
-            t)
-                local cpu_count
-
-                cpu_count=$(sysctl -n hw.ncpu)
-
-                if (( OPTARG < 1 || OPTARG > cpu_count )); then
-                    debug "Thread count must be between 1 and ${cpu_count}."
-
-                    usage
-                fi
-
-                GLOBALS[THREAD_COUNT]="${OPTARG}"
-
-                debug "Thread count set to '${GLOBALS[THREAD_COUNT]}'."
-                ;;
-
-            x)
-                GLOBALS[INPUT_EXTENSION]=$(realpath "${OPTARG}")
-
-                debug "Input extension set to '${GLOBALS[INPUT_EXTENSION]}'."
-                ;;
-
-            y)
-                GLOBALS[OUTPUT_EXTENSION]=$(realpath "${OPTARG}")
-
-                debug "Output extension set to '${GLOBALS[OUTPUT_EXTENSION]}'."
                 ;;
 
             *)
@@ -138,14 +89,6 @@ process_options() {
     done
 
     shift $(( OPTIND - 1 ))
-}
-
-set_defaults() {
-    if [[ -z ${GLOBALS[PRESET_JSON]} ]]; then
-        GLOBALS[PRESET_JSON]=$(realpath ./handbrake_presets.json)
-
-        debug "Preset JSON file set to default of '${GLOBALS[PRESET_JSON]}'."
-    fi
 }
 
 check_for_dependency() {
@@ -161,7 +104,7 @@ check_for_dependency() {
 check_dependencies() {
     local dependency
 
-    for dependency in caffeinate cat date ffprobe HandBrakeCLI realpath sed tput; do
+    for dependency in caffeinate cat date ffprobe gsed realpath sed sqlite-utils tput; do
         check_for_dependency "${dependency}"
     done
 }
@@ -184,8 +127,19 @@ get_movie_or_show_name() {
     printf "%s" "$1" | sed -E "s|^${GLOBALS[BASE_INPUT_PATH]}/(.*)/.*|\1|"
 }
 
+get_movie_or_show_id() {
+    printf "%s" "$1" | sed -E "s|^${GLOBALS[BASE_INPUT_PATH]}/.* \[imdbid-(.*)\]/.*|\1|"
+}
+
 replace_input_path() {
-    printf "%s" "$1" | sed -E "s|^${GLOBALS[BASE_INPUT_PATH]}/(.*)\.${GLOBALS[INPUT_EXTENSION]}|$2/\1.${GLOBALS[OUTPUT_EXTENSION]}|"
+    printf "%s" "$1" | sed -E "s|^${GLOBALS[BASE_INPUT_PATH]}/(.*)|$2/\1|"
+}
+
+get_title_type() {
+    sqlite-utils "${GLOBALS[IMDB_DB_PATH]}" \
+      'SELECT m.mappedTitleType || "s" FROM title_basics AS t, title_type_map AS m WHERE t.titleType = m.titleType AND t.tconst = :tconst;' \
+      -p tconst "$1" \
+      -r | gsed -e 's/\b\(.\)/\u\1/g'
 }
 
 get_output_file() {
@@ -195,13 +149,17 @@ get_output_file() {
 
     input_file="$1"
 
-    show_or_movie_name=$(get_movie_or_show_name "${input_file}")
+    show_or_movie_id=$(get_movie_or_show_id "${input_file}")
 
-    for type in "movies" "shows"; do
-        if [[ -d "${GLOBALS[BASE_OUTPUT_PATH]}/${type}/${show_or_movie_name}" ]]; then
-            output_file=$(replace_input_path "${input_file}" "${GLOBALS[BASE_OUTPUT_PATH]}/${type}")
-        fi
-    done
+    if [[ -z ${show_or_movie_id} ]]; then
+        debug "Could not extract show or movie ID from input file: '${input_file}'."
+
+        return 1
+    fi
+
+    type=$(get_title_type "${show_or_movie_id}")
+
+    output_file=$(replace_input_path "${input_file}" "${GLOBALS[BASE_OUTPUT_PATH]}/${type}")
 
     printf "%s" "${output_file}"
 }
@@ -215,7 +173,7 @@ get_file_seconds() {
     printf "%s" "${seconds}"
 }
 
-run_handbrake() {
+backup_file() {
     local input_file
     local output_file
     local show_or_movie_name
@@ -252,15 +210,12 @@ run_handbrake() {
         return 2
     fi
 
-    debug "Processing file: '${input_file}' to '${output_file}'."
+    debug "Backing up file: '${input_file}' to '${output_file}'."
 
-    caffeinate -dim \
-        HandBrakeCLI \
-        --preset-import-file "${GLOBALS[PRESET_JSON]}" \
-        --preset "${GLOBALS[PRESET_NAME]}" \
-        --input "${input_file}" \
-        --output "${output_file}" \
-        -x threads="${GLOBALS[THREAD_COUNT]}"
+    # make directory if it doesn't exist
+    mkdir -p "$(dirname "${output_file}")"
+
+    cp "${input_file}" "${output_file}"
 
     debug "Done with file: '${input_file}'."
 
@@ -302,18 +257,16 @@ main() {
 
     process_options "$@"
 
-    set_defaults
-
     check_dependencies
 
     validate_globals
 
-    mapfile -d $'\0' file_list < <(gfind "${GLOBALS[BASE_INPUT_PATH]}" -type f -name "*.${GLOBALS[INPUT_EXTENSION]}" -print0)
+    mapfile -d $'\0' file_list < <(gfind "${GLOBALS[BASE_INPUT_PATH]}" -type f ! -name '.DS_Store' -print0)
 
     GLOBALS[START_TIME]=$(date +%s)
 
     for file in "${file_list[@]}"; do
-        run_handbrake "${file}"
+        backup_file "${file}"
     done
 }
 

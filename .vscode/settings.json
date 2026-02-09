@@ -7,10 +7,15 @@
         "ffprobe",
         "GDRIVE",
         "gfind",
+        "gsed",
+        "IMDB",
+        "imdbid",
         "jellyfin",
+        "makemkv",
         "ncpu",
         "nokey",
         "noprint",
-        "setaf"
+        "setaf",
+        "tconst"
     ]
 }
