@@ -116,10 +116,10 @@ sync_folders() {
         show_progress="--info=progress2"
     else
         show_progress=""
-    fi 
+    fi
 
     caffeinate -dim \
-      rsync "${show_progress}" \
+      rsync ${show_progress} \
       --devices --specials --ignore-times \
       --recursive --times --quiet \
       --exclude-from="${GLOBALS[EXCLUDE_FILE]}" \
