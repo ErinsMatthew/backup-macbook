@@ -12,6 +12,8 @@ REMOVE_DUPLICATES_SCRIPT=~/bin/remove_duplicate_brewfiles.py
 
 EVICT_DAYS=7
 
+export HOMEBREW_NO_AUTO_UPDATE=1
+
 #
 #  backup brews
 #
