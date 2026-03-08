@@ -141,11 +141,23 @@ process_options() {
 }
 
 set_defaults() {
+    local thread_count
+
     if [[ -z ${GLOBALS[PRESET_JSON]} ]]; then
         GLOBALS[PRESET_JSON]=$(realpath ./handbrake_presets.json)
 
         debug "Preset JSON file set to default of '${GLOBALS[PRESET_JSON]}'."
     fi
+
+    if [[ -n ${GLOBALS[THREAD_COUNT]} ]]; then
+        thread_count=${GLOBALS[THREAD_COUNT]}
+    else
+        thread_count=$(sysctl -n hw.ncpu)
+    fi
+
+    GLOBALS[PROBE_THREAD_COUNT]=$(awk "BEGIN {print int(1.5 * $thread_count)}")
+
+    debug "Probe thread count set to number of CPU cores: '${GLOBALS[PROBE_THREAD_COUNT]}'."
 }
 
 check_for_dependency() {
@@ -161,7 +173,7 @@ check_for_dependency() {
 check_dependencies() {
     local dependency
 
-    for dependency in caffeinate cat date ffprobe HandBrakeCLI realpath sed tput; do
+    for dependency in awk caffeinate cat date ffprobe HandBrakeCLI realpath sed tput; do
         check_for_dependency "${dependency}"
     done
 }
@@ -215,6 +227,10 @@ get_file_seconds() {
     printf "%s" "${seconds}"
 }
 
+get_file_info() {
+    ffprobe -v error -threads "${GLOBALS[PROBE_THREAD_COUNT]}" -count_frames -select_streams v -show_entries stream=duration,nb_read_frames,r_frame_rate -of csv=p=0 "$1"
+}
+
 run_handbrake() {
     local input_file
     local output_file
@@ -246,7 +262,19 @@ run_handbrake() {
         if (( output_seconds < input_seconds )); then
             debug "Output file '${output_file}' is possibly shorter than '${input_file}'."
 
-            SHORT_FILES+=("${input_file} (${input_seconds}s) vs ${output_file} (${output_seconds}s)")
+            debug "Gathering file info for '${input_file}'."
+
+            input_info=$(get_file_info "${input_file}")
+
+            debug "Gathering file info for '${output_file}'."
+
+            output_info=$(get_file_info "${output_file}")
+
+            diff_string="${input_file} (${input_seconds}s) (${input_info}) vs ${output_file} (${output_seconds}s) (${output_info})"
+
+            debug "File info diff: ${diff_string}"
+
+            SHORT_FILES+=("${diff_string}")
         fi
 
         return 2
