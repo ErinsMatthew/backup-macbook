@@ -44,10 +44,17 @@ init_globals() {
 
     declare -ag SHORT_FILES=()
 
+    declare -ag ERROR_MESSAGES=()
+
     declare -Ag COUNTS=(
         [PROCESSED]=0
         [EXISTS]=0
         [ERROR]=0
+    )
+
+    declare -Ag PROCESSED_SIZES=(
+        [INPUT]=0
+        [OUTPUT]=0
     )
 
     declare -Ag COLORS=(
@@ -241,7 +248,11 @@ run_handbrake() {
     show_or_movie_name=$(get_movie_or_show_name "${input_file}")
 
     if [[ -z ${output_file} ]]; then
-        debug "Could not determine output file for input file: '${input_file}'. Skipping."
+        local error_message="Could not determine output file for input file: '${input_file}'. Skipping."
+
+        ERROR_MESSAGES+=("${error_message}")
+
+        debug "${error_message}"
 
         COUNTS[ERROR]=$((COUNTS[ERROR] + 1))
 
@@ -292,6 +303,9 @@ run_handbrake() {
 
     debug "Done with file: '${input_file}'."
 
+    PROCESSED_SIZES[INPUT]+=$(stat --format='%s' "${input_file}")
+    PROCESSED_SIZES[OUTPUT]+=$(stat --format='%s' "${output_file}")
+
     COUNTS[PROCESSED]=$((COUNTS[PROCESSED] + 1))
 }
 
@@ -318,8 +332,15 @@ Processed : ${COUNTS[PROCESSED]}
 Exists    : ${COUNTS[EXISTS]}
 Errors    : ${COLORS[red]}${COUNTS[ERROR]}${COLORS[reset]}
 
+${COLORS[white]}== ${COLORS[blue]}PROCESSED SIZES ${COLORS[white]}==${COLORS[reset]}
+Input  : ${PROCESSED_SIZES[INPUT]}
+Output : ${PROCESSED_SIZES[OUTPUT]}
+
 ${COLORS[white]}== ${COLORS[red]}MISMATCHES ${COLORS[white]}==${COLORS[reset]}
 ${SHORT_FILES[@]}
+
+${COLORS[white]}== ${COLORS[red]}ERRORS ${COLORS[white]}==${COLORS[reset]}
+${ERROR_MESSAGES[@]}
 EOT
 
     exit
