@@ -27,7 +27,7 @@ python3 "${REMOVE_DUPLICATES_SCRIPT}" "${BACKUP_PATH}"
 #
 #  evict old Brewfiles from local disk
 #
-#FIXME: find redownloads iCloud files
+#FIXME: find re-downloads iCloud files
 #find "${BACKUP_PATH}" -mtime +"${EVICT_DAYS}" -exec brctl evict "{}" \;
 
 #
