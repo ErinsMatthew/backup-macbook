@@ -303,8 +303,14 @@ run_handbrake() {
 
     debug "Done with file: '${input_file}'."
 
-    PROCESSED_SIZES[INPUT]+=$(stat --format='%s' "${input_file}")
-    PROCESSED_SIZES[OUTPUT]+=$(stat --format='%s' "${output_file}")
+    local input_size
+    local output_size
+
+    input_size=$(stat --format='%s' "${input_file}")
+    output_size=$(stat --format='%s' "${output_file}")
+
+    PROCESSED_SIZES[INPUT]=$((PROCESSED_SIZES[INPUT] + input_size))
+    PROCESSED_SIZES[OUTPUT]=$((PROCESSED_SIZES[OUTPUT] + output_size))
 
     COUNTS[PROCESSED]=$((COUNTS[PROCESSED] + 1))
 }
