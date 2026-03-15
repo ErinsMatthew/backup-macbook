@@ -16,4 +16,5 @@ cat "${EXCLUSIONS_FILE}" >> "${FOLLOWERS_TEMP_FILE}"
 sort "${FOLLOWERS_TEMP_FILE}" | uniq > "${EXCLUSIONS_TEMP_FILE}"
 
 
-jq --raw-output '.likes_media_likes | group_by(.title) | map({"title": .[0].title, "count": length}) | sort_by(-.count)[] | select( all( .; .count > 4) ) | [.title, .count] | @csv' "${LIKED_POSTS_JSON}" | grep -v -f "${EXCLUSIONS_TEMP_FILE}" > "${OUTPUT_CSV}"
+#jq --raw-output '. | group_by(.title) | map({"title": .[0].title, "count": length}) | sort_by(-.count)[] | select( all( .; .count > 4) ) | [.title, .count] | @csv' "${LIKED_POSTS_JSON}" | grep -v -f "${EXCLUSIONS_TEMP_FILE}" > "${OUTPUT_CSV}"
+jq --raw-output '[ .[].label_values[].dict[0] | select(has("dict")).dict[] | select(.label == "Username") ] | group_by(.value) | map({"title": .[0].value, "count": length}) | sort_by(-.count)[] | select( all( .; .count > 4) ) | [.title, .count] | @csv' "${LIKED_POSTS_JSON}" | grep -v -f "${EXCLUSIONS_TEMP_FILE}" > "${OUTPUT_CSV}"
