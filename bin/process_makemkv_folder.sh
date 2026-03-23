@@ -14,8 +14,9 @@ OPTIONS
 -d        output debug information
 -i dir    input path for the source files
 -j file   HandBrake preset JSON file
--p name   HandBrake preset name
 -o dir    output path for the processed files
+-p name   HandBrake preset name
+-s        show file information for files that are possibly shorter than the source file
 -t count  number of threads to use for processing (default: number of CPU cores)
 -x ext    input file extension (default: mkv)
 -y ext    output file extension (default: mkv)
@@ -34,8 +35,9 @@ init_globals() {
         [DEBUG]='false'                                     # -d
         [BASE_INPUT_PATH]=''                                # -i
         [PRESET_JSON]=''                                    # -j
-        [PRESET_NAME]='MKV Fast 1080p30 English Subtitles'  # -p
         [BASE_OUTPUT_PATH]=''                               # -o
+        [PRESET_NAME]='MKV Fast 1080p30 English Subtitles'  # -p
+        [SHOW_SHORT_FILE_INFO]='true'                       # -s
         [THREAD_COUNT]=$(sysctl -n hw.ncpu)                 # -t
         [INPUT_EXTENSION]='mkv'                             # -x
         [OUTPUT_EXTENSION]='mkv'                            # -y
@@ -78,7 +80,7 @@ process_options() {
     local OPTARG    # set by getopts
     local OPTIND    # set by getopts
 
-    while getopts ":di:j:p:o:t:x:y:" flag; do
+    while getopts ":di:j:o:p:st:x:y:" flag; do
         case "${flag}" in
             d)
                 GLOBALS[DEBUG]='true'
@@ -98,16 +100,22 @@ process_options() {
                 debug "Preset JSON file set to '${GLOBALS[PRESET_JSON]}'."
                 ;;
 
+            o)
+                GLOBALS[BASE_OUTPUT_PATH]=$(realpath "${OPTARG}")
+
+                debug "Output path set to '${GLOBALS[BASE_OUTPUT_PATH]}'."
+                ;;
+
             p)
                 GLOBALS[PRESET_NAME]="${OPTARG}"
 
                 debug "Preset name set to '${GLOBALS[PRESET_NAME]}'."
                 ;;
 
-            o)
-                GLOBALS[BASE_OUTPUT_PATH]=$(realpath "${OPTARG}")
+            s)
+                GLOBALS[SHOW_SHORT_FILE_INFO]='false'
 
-                debug "Output path set to '${GLOBALS[BASE_OUTPUT_PATH]}'."
+                debug "Show short file info turned off."
                 ;;
 
             t)
@@ -273,17 +281,19 @@ run_handbrake() {
         if (( output_seconds < input_seconds )); then
             debug "Output file '${output_file}' is possibly shorter than '${input_file}'."
 
-            debug "Gathering file info for '${input_file}'."
+            if [[ ${GLOBALS[SHOW_SHORT_FILE_INFO]} == 'true' ]]; then
+                debug "Gathering file info for '${input_file}'."
 
-            input_info=$(get_file_info "${input_file}")
+                input_info=$(get_file_info "${input_file}")
 
-            debug "Gathering file info for '${output_file}'."
+                debug "Gathering file info for '${output_file}'."
 
-            output_info=$(get_file_info "${output_file}")
+                output_info=$(get_file_info "${output_file}")
 
-            diff_string="${input_file} (${input_seconds}s) (${input_info}) vs ${output_file} (${output_seconds}s) (${output_info})"
+                diff_string="${input_file} (${input_seconds}s) (${input_info}) vs ${output_file} (${output_seconds}s) (${output_info})"
 
-            debug "File info diff: ${diff_string}"
+                debug "File info diff: ${diff_string}"
+            fi
 
             SHORT_FILES+=("${diff_string}")
         fi
