@@ -293,9 +293,9 @@ run_handbrake() {
                 diff_string="${input_file} (${input_seconds}s) (${input_info}) vs ${output_file} (${output_seconds}s) (${output_info})"
 
                 debug "File info diff: ${diff_string}"
-            fi
 
-            SHORT_FILES+=("${diff_string}")
+                SHORT_FILES+=("${diff_string}")
+            fi
         fi
 
         return 2
